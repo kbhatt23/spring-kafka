@@ -1,0 +1,111 @@
+- messaging systmes are mostly used in application to application communication
+benefits of messaging system:
+a. logical decoupling of 2 applicatoins in communication
+	-> if no messaging system then they might interact using soap/rest/graphql/file/db
+		code to expose api and read data will be based on this contrat whihc is not good
+	if we use messaging system it do not matter as we will always use same format JSON and same way to push/pull data, integration code should be independent of 2 applications
+b. data decoupling: In case one application is down the communication will not loose and data will be pushed in quue and will be processed once other application is up
+c. if task is high time consuming it does not make sense to call using rest and wait for so long, it can be pushed ot queue and be processed
+	all 3 features of messaging system are present in kafka plus other streaming features(live event streaming,error /success storage, data backup , clustering etc)
+
+- distributd streaming event system features
+a. same as messaging systems -> pub sub model
+b. fault tolerance/resilient stroage ability : cluster is there for resilient and tolerace
+c. real time data sending/streaming ability
+
+- kafka have topics for message queue whihc unlike rabbitmq is ordered always
+
+kafka distribution providers:
+a. kafka core
+b. confluent kafka core + extra monitoriung features , more costly
+
+Steps to run
+a. install java, setup java_home env variable and path
+b. download binary file and extract
+c. create data folder and create subflders kafka and zookeper
+d. in zookeeper.proeprties set data/zookeeper folder as output dir
+	dataDir=C:\Kanishk\learning\spring-kafka\kafka_2.12-2.3.1\data\zookeeper
+e. cd C:\Kanishk\learning\spring-kafka\kafka_2.12-2.3.1\bin\windows
+	and run zookeeper-server-start.bat 
+
+
+steps to run:
+a. open cmd in admin mode: 
+b. cd C:\Kanishk\learning\spring-kafka\kafka_files\config
+c. zookeeper-server-start zookeeper.properties 
+	started the zookeper instance
+
+d. cd C:\Kanishk\learning\spring-kafka\kafka_files\config
+e. kafka-server-start server.properties
+
+differnece b/w event driven and messaging system
+a. messaging system do not have order preservation of messages and also message gets removed after it is read by consumer
+	whereas in even driven system it is stored in event store for (CQRS event sourcing)
+
+kafka can be considered as storage warehous, eac producer can put message in one room(called partition) and there is aseuqnece on eac room(offset) and whole warehouse is called topic
+constituents of kafka:
+a. topic 
+b.partition
+c. offset : start woith 0 for each partition
+one topic can have n number of partitions , each consumer can connect to each partition and for reach aprtition offset starts with 0
+	this helps in concurrency and having multiple consumers connecting and processing one topic
+	number of consumers = number of partitions 
+- items are always ordered per partition and outside partition orders are not fixed
+- items are immutable and can not be modified once pushed to partition
+
+- we can confirm message to go to same partition based on key,
+	if we denine key in the message json whenever same valued message comes it goes to same partition, this helps in proper orderding
+	eg for same order id first creation happen, then submission , paymentt, shipment complete, each even will go to same partition an dhence untill earlier one is done second step wont even start
+
+- zookeeper is used to manage broker clusters, making sure data is saved and cluster is highly available
+
+NOTE : 
+- See lecture with title "Executing Kafka Commands" if you need guidance to execute commands
+- If you use windows, change the .sh extension to .bat
+
+# create topic t_hello
+kafka-topics.sh --bootstrap-server localhost:9092 --create --topic t_hello --partitions 1 --replication-factor 1
+
+# list topic
+kafka-topics.sh --bootstrap-server localhost:9092 --list
+
+# describe topic
+kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic t_hello
+
+# create topic t_test
+kafka-topics.sh --bootstrap-server localhost:9092 --create --topic t_test --partitions 1 --replication-factor 1
+
+# delete topic t_test
+kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic t_test
+
+- Offset to retrieve from is kept at consumer level,
+	if we stop the server it starts from the same offset , that is dependent on the config done
+
+- message with key is useful to make sure new messages goes to smae partition, however this works only if partition is not deleted/renamed/and a new is created
+	as based on size and key value it hases it and find proper partition to send
+	this ensures that next step of event gets processed only after previous steps are done, if they are allowed to go to different partitions and their speed oif processing may be different whihc may result in step 2 getting processed before step1
+
+# Kafka console consumer (change the partition number as needed)
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic t_multi_partitions --offset earliest --partition 0
+
+- at max one partition can connect to one consumer, however one consumer can process more than one partition
+- partitions are needed for concurrnecy in case consumer is slower than producer and this way we can create multiple partition with individual onsumer connected flowwing its own offset
+
+- in spring boot we define cincurrency to 2 , it autowmatically creates two threads , one thread of consumer handling one partition and the other consumer processing other partition
+- this way at the same time data can be sent by producer to multiple partitions and multiple consumers can read from multiple partitions as consumer process may be slow
+
+- optimum solution is that number of consumers = number of partitions for best usage
+- we can delete the topics but can not delete indivudla partition in a topic as it not only removes the data , it also can lead to inconsistent division in partitions based on key
+	reading of old index will not be possible\
+
+- kafka rebalancing is the provcess of increasing the topic partition at runtime,
+	kafka takes some time to adjust and start using this newly created topic for concurrency,
+	if we have concurrency of 1 and topic paritions are 3 it will use only one topic's partitions
+	- rember the distribution of message based on key will also change in case rebalancing occurs
+
+- if we use groupid for same topic, same message goes form producer to all such consumers
+	, we cna add filtering to these consumer groupos based in connection factory customization
+	- remember these multiple groups works concurrently and independently
+
+- in rabbit mq in case of error it retries based on the retrying config in case any exception occurs,
+	in kafka in case of exepctin it ignores it unless retrying is configured and goes to next element, also we can set up Dead letter topic in kafka just like dead letter exchange in case of rabbit mq
