@@ -109,3 +109,9 @@ kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic t_multi_part
 
 - in rabbit mq in case of error it retries based on the retrying config in case any exception occurs,
 	in kafka in case of exepctin it ignores it unless retrying is configured and goes to next element, also we can set up Dead letter topic in kafka just like dead letter exchange in case of rabbit mq
+
+- while using dead letter topic we need to create topic with at least same size as that of orginal topic
+
+- spring kafka not jus tprovide retrying during consumer excpetion, but also during sending the message to kafka
+	in case kafka was down temporaily we can use future object provided by kafkaTemplate.send method to do callback
+	-> this also means that send method is asynchronous in kafka tempalte and thread do not wait for sending to be completed and continue with further code

@@ -13,7 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.kafkaconsumer.basics.entity.Employee;
 import com.learning.kafkaconsumer.basics.entity.FoodOrder;
 
-@Service
+//@Service
 public class FoodORderConsumer {
 	private static final String FOOD_ORDER_TOPIC = "food-order-topic";
 	@Autowired

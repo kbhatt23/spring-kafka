@@ -11,7 +11,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.kafkaproducer.basics.entity.FoodOrder;
 
-@Service
+//@Service
 public class FoodOrderProducer implements CommandLineRunner {
 
 	private static final String FOOD_ORDER_TOPIC = "food-order-topic";
