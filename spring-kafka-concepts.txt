@@ -115,3 +115,21 @@ kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic t_multi_part
 - spring kafka not jus tprovide retrying during consumer excpetion, but also during sending the message to kafka
 	in case kafka was down temporaily we can use future object provided by kafkaTemplate.send method to do callback
 	-> this also means that send method is asynchronous in kafka tempalte and thread do not wait for sending to be completed and continue with further code
+
+- DAta sent by producer gets recieved by consumer and consumer might transform it to another form for its usage
+	instead we can let kafk ado this transformation using kafka stream
+- kafka stream takes input as one topic (whihc producer might be pushong data to), acts as ocnsumer recieves it , transform it like filter map reduce and then publish to another topic
+	whihc the actual consumer will consume, this introduces loose coupling and single responsbility as transforamtion/filter/reduce ha[ppens at kafka stream,
+	however instead of one topic we might have 2 topics as an overhead 
+
+- Also this kafka stream library can be either kept at consuer side or in case colsnumer machine is already loaded then we can create new application running on sperate machine
+	this is importnat concept in big data as consumer need to do very heavy loading task
+
+- good replacement to apache spark,flink etc for stream processing
+
+- Stream processing is like a seuqnce of ordered data, 
+	- we need to process hem in order
+	- is limit less meaning we keep on waiting infinitely like a live footbal score
+	- data once pushed to queueu is immutable
+	- we can replay the events like youtube live chat
+	- we keep on waiting and data sending is not predivtable , we process it once it arrives and we can not predict when it arrives

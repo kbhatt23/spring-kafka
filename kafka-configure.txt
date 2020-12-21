@@ -1,0 +1,13 @@
+all steps:
+https://github.com/dilipsundarraj1/kafka-for-developers-using-spring-boot/blob/master/SetUpKafka.md
+
+Start up the Zookeeper.
+after setting config/zookeeper.properties
+
+- cd C:\Kanishk\learning\spring-kafka\kafka_files\bin\windows
+- zookeeper-server-start.bat ..\..\config\zookeeper.properties
+
+startup brokers:
+configure server.properties
+- cd C:\Kanishk\learning\spring-kafka\kafka_files\bin\windows
+- .\kafka-server-start.bat ..\..\config\server.properties

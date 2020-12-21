@@ -1,0 +1,104 @@
+- JAva NIO provides features like asynchronous i/o operations like http call, file read/write etc
+- It aslos provides large buffer for processing and hence have better performances
+
+- NIO2 provides file system management like  file modification event, event when file is managed etc
+
+- NIO deals with buffers and channels for async/non blcking i/o operations
+
+- Problems with java i/o
+  a. it is blocking and nio provides asynchronous i/o features
+  b. genrally read/write happens with one char/byte at a time whihc slows down whole process
+	, for this bufferedreader and writer were introduced but it stores the buffer in JVM heap memory
+	, because JVM heap memory is fixed and also shared by object i/o api is not very good for bulk operations
+  c. it is not efficiencet for bulk oepations/operations with very high aount of data as buffers are keps in JVMheap memory and that cause perfroamnce concern
+  d. charsets are not properly utilized, on reading the charachters are read one by one and coinverted to UTF8 style making it slow
+
+- what NIO provides
+  a. non blocking channels
+  b. single channel for read and write, whereas in I/O we had different reader and writer objects to handle
+  c. bulk access using channels
+  d. allow creating buffers outside the JM heap memory(hence performacen efficieny in memory and better performance)
+  e. great support of charsets
+
+- parts of NIO package
+  a. buffers: the memory where data actually recived, it could be objet.primitive or chars
+  b. channel : connection betweeen buffer and Fiule/Socket,
+  c. selectors  : module to make i/o operations asynchronous
+  A Write oepration means pushing th data to the buffer, ITs the responsibility of devloper using thi api
+	api take the buffer in the form of bytes and passes it though channel and wirtes to file/socket
+  A Read oepration means taking data from channel and pusing to buffer, 	
+	API responsilkity is to pass the data from file/.socket to the channel and buffer reads it from channel and interpret
+
+
+Types of channel:
+a. Filechannle: for file access, any modification in buffer directly read/write to file , so use with caution
+	Very useful and impletmnation is hidden as it is based on runnig O.S , so it is smart enough to chekc the O.S and use the approach that could be fastest based on the running O.S
+b. socketchannel : UDP type netwrok operation
+c. sockettcpchannel : TCP based netwrok oepration 
+ 
+Types of buffers
+a. bytebuffer
+b. charbuffer
+c. intbuffer etc
+ buffer is nothing but like a queu backed by array of bytes
+	-> just like kafka it will have array with fixed size() and offset like cursor(for current position tailing)
+	current cursor can be set and reset and rewinded
+	general operation means set the cursor at index 0 and keep on adding the cursor to next until limit index is reached , it ignores buffer array after limit index is reached even if data is present in byte array
+
+
+ oeprations:
+a. rewind: set the current cursor to index 0, so that data will start flowing from begining
+b. reset: set the cursor to prvious saved index
+c. flip: meanins set the limit to current position and rewind
+	meaninign if we call flip at any point index x of time it starts from 0 index only until the x index is reached
+d clear:removes everything from buffer
+
+- we can also have multiple bytebuffer written and read to/from channel
+	- very useful in case of fixed sized buffer
+	like  a message with fixed sized header,footer , body
+WE CAN CEATE ARRAY FO BYTEBUFFER FOR THAT
+
+- mapped buffers"
+	 very usefu; when we want to do data manipulatio in memory instead of directly doing in files, saves performance
+
+- CHARSETS
+ - WE CAN COVNvert charbuffer into bytebuffer(as bytebuffer is only supported buffer by filechannels) : this process is called encode
+- decode is reverse process to covert bytebuffer to charbuffer
+-	on writing we first create charbuffer(useful in saving strings storage in files)
+	- we create charbuffer from string, then encode(convert charbuffer to bytebuffer) ten pass it to filechannel
+	- this process is writing
+ - stpes in reading: a. get bytebuffer from channel then decode that to charbuffer and take string from charbuffer
+encoding/decoding is done based on the charset type like utf8 etc, nio provides classes for each type of encoding/decoding
+
+- java nio non blocking selectors mihgt not be that much useful now with advanced hardware and we can use paralle [progrmaming with multiple threads 
+ but in 2002 creating a thread was a big task and hence async non blocking nio for reading of i/o file was important
+	lets say we want to call 2 services or read data from 3 filees , using i/o we cna not even request for 2nd and thoird until first is done and so on,
+	using java nio selectors we can do in async so that with minimum threads we can do multi tasking
+
+----why we need java nio2 file systems:
+a. performance: it utilizes O.S based native methods usage, hence it will be faster as based on O.S inner implementation is done
+
+FileSystemProvider.installedProviders() provides 2 filesystem , ibe based on os (like windowsfilesystemprovider,linuxfilesystemprovider) and zipfilesystemProvider(for windows) or jarsystemprovider(for linux)
+using filesystemprovider we can get filesystem based on o.s
+
+- A path is bound to filesystem
+	-> Filesystem.getdefault.createPAth is the method that is used to create Path
+- java nio2 provides file attributes based on O.S
+	diffreent impletmentation for different O.S this was not available for old i/o and NIO
+	eg: basicFileAttributes like ,isFile, isDirectory, lastodifiedtime,createduser,reationDate
+	struyture 
+	BascFileAttribute: common attributes liek creationDAte/user/lastmodfiedtime,isfile,isDirectory
+	DosFileAttributes: Extends basicFileAttributes ,adds features speific to windows like ishidden, isREadonly , isReadable etc
+	PosixfileAttributes: extends asicFileAttributes , adds unix/linux proeprties like permissoins, group , ownser etc
+
+- why to use nio2 watch service:
+	a. we could impleent it using scheduled thread pool htat runs every second , saves the state of directory and checkc if new file/directory is created/delete/modified etc
+	however this is costly as we are scheudling the task every one/2 seonds
+	b. Also in case within one scheuled job, if one file is created and then deleted we never know abt this new file creation event
+	so it is inconsistent
+	watch service do need thread but need not a scheuler that pulls the information
+	instead it is a push based model , where native o.s library pushes the vent of creation/modification/dleetion that our thread is looking for
+	, it is faster, consistent and better in memory utiltization and easier to implement
+- watchservice is by defalt watching event only for the directory and do not look for subdirectory events
+
+- in short nio2 features are added to support native O.S libraries for perfroamcne and memory utilization

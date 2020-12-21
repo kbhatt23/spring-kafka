@@ -1,0 +1,74 @@
+- in event driven microservice architechture, any change in data is consdered an event and one service publish a change event and other services picks it from streaming platorm/broker
+- This introduces a loose coupling in communication among different mciroservices
+- Also all the chnage/events in entity of boudned context is saved in streaming platoform(in messaging platoform it is not stored)
+	so at any time if we loose data we can actually rerun the events to actually reach the final state
+
+- Event streaming platoform like kafka is different thatn messaging system 
+a. events/messages remains store even after consumption by consunmer
+b. it follows and supports distrubuted architechture and hence upscaling/downscaling is easier than messaging system
+c. it retains the order of execution even when multiple partitions are created for autoscaling
+d. better support for fault tolerance and  high availability
+e. It also supports manipulation/transformation/filtering of events while present in quuee, like apache kafka streams , this helps in perforance when very high amount of events are passed to broker
+f. eents/message are immutable
+g. messaging system is push based meaning its broker's responsiblity to distribute message to consumer like in rabbit mq
+	events are pull based meaning its resonsbility of consumer to pull data
+	also in messaging system broker keeps track of data as it will be removed once consumed but in event streaming system since data is always stored/retianed,
+	the consumer has to deal with the index/offset of item 
+
+- streaming platform like kafka can be used for real time location details , sale notification etc,rela time shipping notification, very much useful in real time fraud detection
+	anything whihc needs very fast event processing is good use case of event streaming
+
+- kafka cluster contains multiple kafka blocker, eac blocker can have n number of topics and inside that we cna have n number of partitions
+- Zookeeper's job is to manage the brokers, like checking health, scaling up/down etc
+
+- APIS provided by kafka
+a. kafka producer : use thie to write custom code to publish data to kafka
+b. kafka consumer: use this to write custom code reading from broker
+c. kafka connect: use this to ingest data from d.b/file system without writing code at all, also we can push the data to D.b or file system from event message published to kafka
+	it has source and sink connector, source cnnector pulls the data fro D.b/file and publish to kafka as a message
+	sink connector takes the message from broker and push it to D.B or file system
+d. kafka stream: used for real time events where we can do modification while messga eis in quue to transform/filter the message to another form before consumer reads it
+	for this we need to make kafka stream a consumer to the topic o actual publisher, kafka stream do transofmraiton and publish transformed message to another topic which the rela consumer will be ingesting
+
+- the offsets of consumer is important to keep track as to till where that consumer have read the parition offset data
+- Generaly there is a default topic __consumer_offsets where the offsers of all consumers are stored, if any consumer apppication crashes and comes back it can pick the last offset value and continue reading from partition from there
+
+- use of log file , -> any message passed form producer to kafka first is saved in log file
+	in server.properties we configure log.dirs, the log files will be stored here
+	since the offset is unique for each topic's partition ,there will be sperate folder and seperate log file for each of the aprtition of all the topics
+	once data is saved to log file (message related metadata in byte format), consumer who is continuosly polling for message , can pick message and update the offset in consumer_offset topic
+
+- Role of zookeeper:
+	- It is used to manage multiple brokers,
+	For this we need to understand features of distributed systems:
+	a. highly available: if one instance is down other instance replicas can manage the work load: this is taken cae by multiple brokers of kafka cluster 
+		zookeepr keeps on reaidng the heartbeat to ensure that brokers ar eup and running, so that there is no single point of failure and high availablily
+	b. higly scalable: taken care by topic's partitions, can be rebalanced and concurrnetly taken care by consumer
+	c. resilient in case of error : retry with fallback
+	d. distster free: using log file it saves the data so that it can be rewinded, also consumer keeps its offset indices in oob __consumer_offsets topic so that if it goes down
+			and once it is up again it knows from whcih index it has to read partition
+
+- In a clustered multi broker kafka environment only one of them act as master/controller
+	zookeeper keep on checking the heartbeat and if msater is down it makes other instance/broker as new controller/master
+	data will be replicated in all the broker intance but only one of them is acting/communicating the withe producer and consumer client
+
+- high availability si done using multiple broker replicas, each of the broker kafka server holds the same data of topic and partitions, however only one of the broker is acting as master for producer and consumer client
+- high sca;laibility is done using partitions, in the same broker (master broker) the topics have multiple paritions and hence it can be used for concurrnet scaling
+	anytime master broker goes down , zooker sees the heartbeat and make one of the other broker as msater for communicaiton with producer and consumer clients
+
+- how cluster actually divide data
+	, data will be divided among multiple brokers using hashing, 
+	, eac broker will contain one lead partition and other aprtition will be follower/replica partition
+- since each replica/broker will have one lead aprittion and n number of replica/follower partition
+	data wil come to partitioner and hashing happens to identify the partition and it goes to that broker, same data is replcated to other broker floower partitions
+	, any time an issue happens with one rboker, one of the other broker will beocme master of that broker's partition
+
+- KafkaTemplate.send method steps
+	-> used in producer's side
+	-> send method purpose is to convert the data (String/Object) to byte[] , later this byte array will be sent to broker
+	a. serializer is called, by default key serializer and value serializer is String, we caa udate them if needed
+		-> serialzer convert the string/object data to byte array , string can be converted directly to byte[] but object is first ocnverted to json string(using jackson or jdk serializer) and then byte[] from that string
+	b. partitioner : There is defualt paritioner avai;ble
+		-> job is to choose whihc partition we must push the data to 
+	c. there will be a java nio based buffer , number of batch buffer will be equal to number of partitins, based on the topic parition defined
+		the data won't be pushed to kafka until batch is complete or a time out is done, whichever happens first

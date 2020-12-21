@@ -1,0 +1,78 @@
+to configure kafka in local:
+all steps:
+https://github.com/dilipsundarraj1/kafka-for-developers-using-spring-boot/blob/master/SetUpKafka.md
+
+Start up the Zookeeper.
+after setting config/zookeeper.properties
+
+- cd C:\Kanishk\learning\spring-kafka\kafka_files\bin\windows
+- zookeeper-server-start.bat ..\..\config\zookeeper.properties
+
+startup brokers:
+configure server.properties
+- cd C:\Kanishk\learning\spring-kafka\kafka_files\bin\windows
+- .\kafka-server-start.bat ..\..\config\server.properties
+
+NOTE : 
+- See lecture with title "Executing Kafka Commands" if you need guidance to execute commands
+- If you use windows, change the .sh extension to .bat
+
+# create topic t_hello
+kafka-topics.sh --bootstrap-server localhost:9092 --create --topic t_hello --partitions 1 --replication-factor 1
+
+# create topic using zookeeper(better for managin multiple brokers)
+kafka-topics.bat --create --topic test-topic -zookeeper localhost:2181 --replication-factor 1 --partitions 4
+
+# create topic t_test
+kafka-topics.sh --bootstrap-server localhost:9092 --create --topic t_test --partitions 1 --replication-factor 1
+
+# create topic on multiple brokers, better to use zookeper as for all brokers zookeeper instance will be same,and topic will get auto created in all kafka server instances(brokers)
+# creates topic in all brokers managed by zooker instnace with partiion 2 for each broker
+kafka-topics.bat --create --topic test-topic-replicated -zookeeper localhost:2181 --replication-factor 3 --partitions 2
+
+
+# list topic
+kafka-topics.sh --bootstrap-server localhost:9092 --list
+
+# list topic using zookeeper
+kafka-topics.bat --list test-topic -zookeeper localhost:2181
+
+# to produce data in topic using command
+kafka-console-producer.bat --broker-list localhost:9092 --topic test-topic
+
+# to produce data to topic using key
+kafka-console-producer.bat --broker-list localhost:9092 --topic test-topic --property "key.separator=-" --property "parse.key=true"
+
+# describe topic
+kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic t_hello
+
+
+# delete topic t_test
+kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic t_test
+
+
+# add partition topic
+kafka-topics.sh --bootstrap-server localhost:9092 --alter --topic t_multi_partitions --partitions 4
+
+
+# Kafka console consumer (change the partition number as needed)
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic t_multi_partitions --offset earliest --partition 0
+
+# to produce data to topic with key and value
+kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic test-topic --from-beginning -property "key.separator= - " --property "print.key=true"
+
+
+# describe consumer group (change the group name as required)
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group cg-dashboard --describe
+
+# view a committed log file to see detials of messages of specific partition of a topic
+kafka-run-class.bat kafka.tools.DumpLogSegments --deep-iteration --files C:/Kanishk/learning/spring-kafka/kafka_files/data/kafka/test-topic-0/00000000000000000000.log
+
+# reset offset of consumer group
+# topic format is topic:partition, e.g. : t_some_topic:0,2,4
+# topic format without partition (e.g. : t_my_topic) will reset all partitions
+kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group cg-dashboard --execute --reset-offsets --to-offset 10 --topic t_commodity:0
+
+# add partition to t_rebalance
+kafka-topics.sh --bootstrap-server localhost:9092 --alter --topic t_rebalance --partitions 2
+
