@@ -45,7 +45,7 @@ public class BookEventController {
 		LibraryEvent event = new LibraryEvent("event-" + counter, updatedBook);
 		logger.info("publishBookEvent: Publishing library event for " + event);
 		
-		ListenableFuture<SendResult<String, LibraryEvent>> future = kafkaTemplate.send(LibraryEventsConstants.LIBRARY_TOPIC_NAME, event.getEventId(), event);
+		ListenableFuture<SendResult<String, LibraryEvent>> future = kafkaTemplate.send(LibraryEventsConstants.LIBRARY_TOPIC_NAME, event.getBook().getBookId(), event);
 		
 		future.addCallback(new ListenableFutureCallback<SendResult<String, LibraryEvent>>() {
 
