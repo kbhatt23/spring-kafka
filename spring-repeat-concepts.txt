@@ -72,3 +72,47 @@ d. kafka stream: used for real time events where we can do modification while me
 		-> job is to choose whihc partition we must push the data to 
 	c. there will be a java nio based buffer , number of batch buffer will be equal to number of partitins, based on the topic parition defined
 		the data won't be pushed to kafka until batch is complete or a time out is done, whichever happens first
+
+- By default writing integration test will actually publish the data to main kafka broker
+	but this is not good and hence we should use embedded kafka just like embeded mongodb, embeded h2 etc
+
+- Also while writing we know that the butes of message is pushed to buffer and send method do not publish the message to kafka broker right away
+	, we need to write test class smartly 
+
+- In integration test follow below steps:
+a. setup embedded kafka : so that actualy kafka broker do not get data related to testing
+b. setup a consumer using kafka connection factory: this will help in validating if the data is actually sent correctly to embedded kafka broker
+
+- producer configuration properties:
+a. ack -> 1(default),all,0 
+	. 1: the message is considered succesfully delivered if the message is sucesfully published to leader of the kafka cluster
+	. all: the message is considered succesfully delivered if the message is sucesfully published to all the broker partitions
+	. 0 : even if none of the partition got the message , producer will consider as message sucesfully delivered
+b. retries
+- we cna have retries on consumer side as well as producer side
+	from producer side we have default retry enabled ,but in cae of consumer in case of exception in consumption retry do not happen, we need to configure a connectionfactory with retry template
+       , on producer side we cna override the ocnfiguration based on documentaiton of producer config 
+
+- kafka consumer commit the offset to _consumer_offsets topic so tat next time consumer knows from whihc offset it has to start picking new messages/events
+	there are ocnfiguration on consumer side
+	we can commit the offset in batch(this is default): once n numbe rof items/messages are processed sucesfully commit the offset
+	record level : after any record is processed it commits the offset
+	manual: we need to commit offset in consumer factory manually using code
+	- manual acknowledge can be used when in code we want to acknowledge only when no exceptin occurred and consumer code ran sucesfully,
+	this means if consuer is restarted it will again try to execute the message, although still consumer wont retry until we configure retrying template in connection factory in code
+
+- approach to solve recoverable retrying messages
+	- in case the message was recoverable we can do retrying with backoff, 
+	, however if all retries are exhausted instead of directly logging to golbal / custom error handler we can do recivery work
+	-> after retry we can check if item is recoverable then we publish the event back to the orgiinal topic so that it can be revisited again and consumer can continue with other messages consumption
+	-> after retry we can check if item is recoverable then we publish the message to dead letter topic
+
+---------producer recovery/retry options
+what can cause issue while sending message from producer to kafka
+a. in case the cluster is down and we are sending message : we must retry/recover as netwrok issue can occur
+b. in case we have set producer ack =all , meaning all the buffer should publish to all partition then only we consider message send as succcess : again need to retry/recover
+c. min.insync.replicase=2 but only one broker is avaibale meaning min replicas do nt exist and hence recover/retry is needed
+
+- by default in above cases we have retry option available in producer and we cnc onfigure retry tie and retry backoff time
+	-> but even if after back of and retry the kafka cluster is not up/ minimum replicase of brokers are not yet up then after exchaustion we will loose the message
+	that time in method of onError we can save that record/message in D.B and then create  scehduler that pushes to kafka topic later after every time intercal and remove the entry from tbale on success

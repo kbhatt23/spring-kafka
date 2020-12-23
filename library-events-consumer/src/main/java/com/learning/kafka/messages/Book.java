@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
-public class LibraryEvent {
-	private String eventId;
-	private Book book;
-	private EventType eventType;
+public class Book {
+	private String bookId;
+	private String bookName;
+	private String bookAuthor;
 }
