@@ -54,6 +54,9 @@ kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic t_test
 # add partition topic
 kafka-topics.sh --bootstrap-server localhost:9092 --alter --topic t_multi_partitions --partitions 4
 
+# alter topic to update min replicas
+kafka-topics.bat --alter --zookeeper localhost:2181 --topic library-topic --config min.insync.replicas=2
+
 
 # Kafka console consumer (change the partition number as needed)
 kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic t_multi_partitions --offset earliest --partition 0
