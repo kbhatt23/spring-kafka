@@ -2,6 +2,9 @@ to configure kafka in local:
 all steps:
 https://github.com/dilipsundarraj1/kafka-for-developers-using-spring-boot/blob/master/SetUpKafka.md
 
+ssl security steps:
+https://github.com/dilipsundarraj1/kafka-for-developers-using-spring-boot/blob/master/Kafka_Security.md
+
 Start up the Zookeeper.
 after setting config/zookeeper.properties
 
@@ -78,4 +81,10 @@ kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group cg-dashboard 
 
 # add partition to t_rebalance
 kafka-topics.sh --bootstrap-server localhost:9092 --alter --topic t_rebalance --partitions 2
+
+
+Follow below steps to setup SSL kafka broker and configure spring boot application to connect to such kafka cluster
+
+# List the keytools certificate present in jks file:
+keytool -list -v -keystore server.keystore.jks
 

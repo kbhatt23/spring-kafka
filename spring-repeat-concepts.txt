@@ -116,3 +116,9 @@ c. min.insync.replicase=2 but only one broker is avaibale meaning min replicas d
 - by default in above cases we have retry option available in producer and we cnc onfigure retry tie and retry backoff time
 	-> but even if after back of and retry the kafka cluster is not up/ minimum replicase of brokers are not yet up then after exchaustion we will loose the message
 	that time in method of onError we can save that record/message in D.B and then create  scehduler that pushes to kafka topic later after every time intercal and remove the entry from tbale on success
+
+- Since data going to kafka broker can be very important in case of retail/banking like project kafka provides 2 protocols for security: SSL(also called TLS) and SASL
+
+- in case the keystore kept in the server side is not authenticated by certification party then if we hit in browser it will ask for advanced feature in browser to proceed as the address/company details in certificate is not yet approved
+	-> thats why local keystore always ask to select checkbox of taking risk and proceed to continue while hitting local https server url
+-	Remember the browser acting as lient have a list of signed approved certificates, so we need to setup the same in spring boot application whihc is acting as client
