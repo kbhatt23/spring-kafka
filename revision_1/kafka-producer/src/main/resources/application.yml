@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: producer-service-01
+
+
+  kafka:
+    bootstrap-servers:
+    - localhost:9092
+

@@ -1,0 +1,25 @@
+{
+	"type": "record",
+	"namespace": "com.learning.avro",
+	"name": "Employee",
+	"doc": "Sample Employee record schema",
+	"fields": [
+		{
+			"name": "firstName",
+			"type": "string"
+		},
+		{
+			"name": "lastName",
+			"type": "string"
+		},
+		{
+			"name": "maritalStatus",
+			"type": "string",
+			"default": "UNKNOWN"
+		},
+		{
+			"name": "age",
+			"type": "int"
+		}
+	]
+}

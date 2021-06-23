@@ -1,0 +1,21 @@
+{
+	"type": "record",
+	"namespace": "com.learning.avro",
+	"name": "BackWardCompatibleMessage",
+	"doc": "Sample default value",
+	"fields": [
+		{
+			"name": "firstName",
+			"type": "string"
+		},
+		{
+			"name": "lastName",
+			"type": "string"
+		},
+		{
+			"name": "maritalStatus",
+			"type": "string",
+			"default": "UNKNOWN"
+		}
+	]
+}

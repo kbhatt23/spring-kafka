@@ -1,0 +1,9 @@
+{"namespace": "com.learning.avro",
+ "type": "record",
+ "name": "Employee",
+ "fields": [
+     {"name": "name", "type": "string"},
+     {"name": "age",  "type": ["int", "null"]},
+     {"name": "favouriteFootballer", "type": ["string", "null"]}
+ ]
+}

@@ -28,6 +28,8 @@ d. in zookeeper.proeprties set data/zookeeper folder as output dir
 e. cd C:\Kanishk\learning\spring-kafka\kafka_2.12-2.3.1\bin\windows
 	and run zookeeper-server-start.bat 
 
+------------ ensure that the kafka file folder name is correct and optimum
+
 
 steps to run:
 a. open cmd in admin mode: 
@@ -87,6 +89,12 @@ kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic t_test
 
 # Kafka console consumer (change the partition number as needed)
 kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic t_multi_partitions --offset earliest --partition 0
+
+- in kafka consumer the offset strategy is latest by default
+	meaning once consumer registers to kafka broker it recieves newer message after registration
+	the offset items before that are lost by default
+	in spring boot we must set this to earliest so that even old ones aar picked and offset is updated while consumption takes place,
+	----- in a way consumer by default is like hot publisher in reactive programming where older messagesa re lost and only live ones are recieved 
 
 - at max one partition can connect to one consumer, however one consumer can process more than one partition
 - partitions are needed for concurrnecy in case consumer is slower than producer and this way we can create multiple partition with individual onsumer connected flowwing its own offset

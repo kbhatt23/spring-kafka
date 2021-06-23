@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: consumer-service-01
+    
+  # will be applicable for all the kafka listeners    kafka:    consumer:      group-id: consumer-service-01      enable-auto-commit: true
+      # very imporatant to allow consumer to pick data form old reset
+      # if not set it behaves like hot stream and ignore old data
+      auto-offset-reset: earliest
+    bootstrap-servers:
+    - localhost:9092      
+    
+      
