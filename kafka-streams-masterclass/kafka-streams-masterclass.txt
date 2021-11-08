@@ -1,0 +1,169 @@
+Traditional Data processing follows below steps:
+a. one service passes data to anther service
+b. other service saves the data to D.B
+c. We run processing jobs/sql queries/triggers/schedulers/SQL procedures fetching data from D.B and transofrm to needed format
+	this help in analyzing the data to get needed info for business needs
+	- google page rank algorithm is based on the same above principle
+
+however this concept of recieving , saving in D.B then creating micro jobs/sql procedures/schedulers wont work for event stream data flow
+for that kafka stream provides support for real time stream processing
+
+
+- Transactional producer can solve idempotence issues
+- before each retry in case of failure in acknoledgement the data is rolled back frist in leader log and then retries again
+	hence no cahnce of duplication
+- also if 2 methods are sending data to different topics and running within one transaction then even first one will be rolled back
+		either both are sucesful or both are failed
+- in producer transaction id should be unique even for multiple instances of same application
+			eg user-service1,user-service2,user-service3 should btransaction ids of multiple user service instances
+			
+- however we need below things to allow transaction in producer
+			replication factor >= 3
+			min in sync replicas >= 2
+- we can only start another transaction until previus transaction with same id was committed before
+				or else it blocks for previous trasaction to commit
+				
+- stream processing options in kafka
+a. kafka consumer : good for simple use cases like if record is valid then do this or else do something else
+ however in never ending loop we need to poll for 10 seconds and get list of consumer records
+b. kafka streams
+ eg a scenario when every 5 seconds we get vital data of a patient and aftr every 1 minute we need to create median
+  this can be done by consumer but needed to write a lot of code and potential bugs
+  plus it do not have fault tolerance features
+ kafka stream is a framework that is fault tolerant and have scalability and easier to manage the consumer scenarios
+ it is built on top of kafka producer and consumer library
+c. KSQL : 
+sql like queries can run on cli or automatically configure it
+ no need to write code and this will process the kafka stream data and transofmr/filter etc and push the result to another kafka topic
+ it is not free and provided by ksql
+ 
+ -- in kafka stream properties config we have application id
+//same like group id :  different for different microservices 
+		//but for same instance of same service will be same
+		//kafka stream is fault tolerant and highly scalable because of this application id
+		//multiple instance of same micro service share the same application id and hence kafka stream can manage them ,
+		
+- toplogy is nothing but series of steps a stream event/data flows 
+			all the step by stpe logic of processing streams in different channels is called topoogy
+			it is represented using directed graph
+			one topic -> stream filters -> pushes to another topic -> another stream picks process it and transforma and push toa nother topic and so on
+			
+			each method call on kstream is nothing but adding another layer of processor or transformer hence adding another layer of toplogy graph node
+			
+- unlike java stream , kstream can be used to create multiple chains again and again			
+- just like kafka consumer , kafka stream is also fault tolerant and hhigkly auto scalable
+
+ goroup id used to play role fo unique service in kafka consumer -> same is played by application id in kafka streams
+  multiple instance of same service will have same group id so that partition in topics can be divided here
+  also same can be achieved using concurrent threads(horizontal scaling)
+
+same feature exist in kafka stream where 
+	we can do vertical scaling using concurrency(same application id)
+	or horizontal scaling using multiple instances sharing same application id
+- task of streams processing for multiple partitions are divided among these multi threads or multiple instance os same application
+		also it is fault tolerant , if one application dies his role will be done by other running applications
+		
+- how kafka stream works
+ it s quite same like how kafka consumer do the scaling and fault tolerance
+steps
+In code we create the kstream topolofy which is nothing but steps of actions/processors performed on each message from data stream
+in case in the topology code we have multiple topics joined/involved we take the number of parttions of highest topic -> lets say x
+
+we create n copies o the topology code 
+we assign the worker threads to thest tasks  -> tasks are nothing but actual copy of topology code
+each partition is assigned to these tasks based on partition count(x aligned above)
+	for each partion we can have one task(copy of topology) and worker threads will be assignd to do these tasks
+	same toplogy code is actually done in different threads via different copy of topology(aka tasks)
+	assignement of task is same as that of partition in kafka conumer client api
+	can not have more than count of task(or max value of partition count in a single topic)
+	
+- state store in kafka
+ dsl kstream provide support for statefull and stateless operations/processors
+so far we have studied only stateless processors where each stream message is processed indepdendently
+however when we need to process them with past values we need to store the state of previos messages in state store
+  this could be D.B/in memory/redis but we need to ensure its fault tolerance / high availability
+	in memory will be fast but no fault tolerance or scalability, D.B can be scalable and fault tolearble but will require netwrok call
+	 and hence D.B call can not be fast as in memory cache
+kstream provides in memory capable state store with fault tolerant and high scalability features
+ both fast, in memory as well as fault tolerant 
+ state store can only be used by a stateful operation/processor
+ like transformValues
+ 
+- kafka stream in memory local state store remains local to each task ,
+ meaning it is local for each partion data
+so ensure that the key of the message is same as that as the key/valye store ' s key
+so taht one customer's data do not go to anotjer partition and hence it actually goes to another task where old state wont be correct/valie
+
+- also remember kafka in memory state store is local/fast as wella s fault tolerant
+  each data is tored in one of the state change log topic and that topic si also partitioned
+
+ if one task thread dies , the saved cahnge state log aprtition will be assigned to another thread/task  
+ 
+- Ktable is similar to kstream but instead of prcoessing all items one by one at that time
+   we can store the state and required value in key value store called table, and send it to sink topic only after some fixed time
+ instead os seding message to sync topic for each message , we can aggregate the result and send after regular interval like schedulers
+ in ktable we can continue storing and aggregating the message result and after scheduled time one aggregated message will be sent to sync topic
+in kable value is saved based on key and new message will override the old entry int the table 
+
+- in short ktable is upsert where we insert the data in state store if key do not exist , and we override the new value if key exist in state store
+
+- if a new message comes witha  key that exists in keytable ad value of new message is null ,it can remove the entry from ktable
+- each stream task / thread will have its own copy of topology as wella s state store 
+   also ktable is nothing but a state store and hence each task will have its won copy of ktable as well
+   
+- globalktable is same as ktable owever it is global to all task and hwn concurrent or more instanecs of same application are there
+  same table is sahred acccorss all these application/threads owning tasks unlike ktable whihc is like state store and each task has its own ktable copy
+   this local copy means no need of synchronization and hence faster
+ this is the reason gloablktable is slower
+ 
+- A ktable can be used instead of state store implementation
+ this way we write less code and have same functionality using aggreegate/reduce methods of ktable
+ remember ktable uses tate store internally and that state store is local to the partition job and hence again routing key selection is crusical just like noraml state store coding 
+ 
+ - in aggregate method stream type can be changed, but in reduce can not change the type
+ 
+ 
+- In kafka if we are doing windowing ,  the time stamp gets updated whenever a new message comes
+   in case the timestamp window is passed and a new window is open, and a late comer message comes ,
+ that wont be ignored by default , it will be puished to new time stamp window
+ this infinite oldness can be dangerous as sometimes we do not need to take value of old one
+eg every 5 minutes we are windowing for average B.P of patient, if very old data comes and because if default windowing it gets selcted in current widnow
+  than it will show wrong result
+- using graceperiod we can ensure the limit of oldness of these message, older thatn grace perdiod will be ignroed for new window  
+
+- tumbling window:
+    window time is fixed
+	based on message time stamp extractor it start windowing from first message, and the moment a message with timestamp > the window size from initial
+	it sends the so far fetched aggreagte data to downstream and start new time window
+	however if n older one comes it infinitely take that to the current windiw, to allow old comers of fixed oldness we can use graceperiod 
+	we can amnually suppressthe message using suppress method
+- hopping window: of fized size
+   however along with messages fromt he current window it takes message from older window to some time extent
+  like take data from older one and new window by 1 second +-   
+- session window is not of fized size
+ its size can keep growing untill a new activity happens before session time out 
+ and from last activity if time out of session happens then only a session widnow data/aggregate is pushed to downstream
+ meaning until session is alive it keeps on collecitng data until timeout happens from alst activity and then all data is collected/aggregated and pushed to downstream 
+ 
+ ---joining options available
+ kstream+kstream -> returns kstream , mandated by windowing and non null key based mapping
+ ktable+ktable -> return ktable , based on non null key based mapping but non widow based
+ kstream+ktable -> returns kstream , based on non null key based mapping and non windowed
+ kstream+globalktable -> returns kstream , null key also allowed and non windowed
+ 
+ minimum conditions for joining
+ both the streams/table that are joinign must have same number of partitions in topic and also the final topic should also have same partitions
+ joining are based on key so it should be non null part from globalktable
+ 
+ - instead of creating test cases using embeded kafka server we can use topology tester whihc is light weight api to validate the topology using junit 5
+  for integration and end to end automated test we can use kafka embeded cluster server , but for simple unit test better to use topology validator api
+  
+  
+-- kafka streams interactive apis
+
+= gernally in kafka stream data is feteched froma  topic and we do some aggregate and transformation on that and push the result to another topic
+  however a lot of timea nother api wants to read the state/aggregate data
+ they can beocme consumer of this topic and save data in D.B and then create a controller to show this data for other apis
+- however this adds a lot of code to write in consumer api and involve .D.B whose scalability is again questioned
+ so interactive apis of kafka stream expose rest endpoints using whihc we can get data from state store plus,  we can query the part of whole aggreagate what is needed
+  like garphql where we can ask for specific properties in query  

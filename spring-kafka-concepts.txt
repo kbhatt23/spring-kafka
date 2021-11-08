@@ -6,7 +6,8 @@ a. logical decoupling of 2 applicatoins in communication
 	if we use messaging system it do not matter as we will always use same format JSON and same way to push/pull data, integration code should be independent of 2 applications
 b. data decoupling: In case one application is down the communication will not loose and data will be pushed in quue and will be processed once other application is up
 c. if task is high time consuming it does not make sense to call using rest and wait for so long, it can be pushed ot queue and be processed
-	all 3 features of messaging system are present in kafka plus other streaming features(live event streaming,error /success storage, data backup , clustering etc)
+  like reactive stream it introduces async and non blocking communication b/w producer and consumer	
+all 3 features of messaging system are present in kafka plus other streaming features(live event streaming,error /success storage, data backup , clustering etc)
 
 - distributd streaming event system features
 a. same as messaging systems -> pub sub model

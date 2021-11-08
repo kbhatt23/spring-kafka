@@ -1,0 +1,1 @@
+C:\Kanishk\learning\spring-kafka\kafka_files\bin\windows\zookeeper-server-start.bat C:\Kanishk\learning\spring-kafka\kafka_files\config\zookeeper.properties
