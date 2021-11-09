@@ -1,0 +1,54 @@
+- Kafka is created by linkedin and open sourced, currenlty managed by confluent
+- linkedin created kafka for fixing issues with m *n source/target communication issues like 
+	a. communication protocol : http, rest, tcp, dtp, jdbc etc
+	b. communication format: csv, json, avro, protobuff etc
+	c. standardisation in communication among systems
+- it can help in logically decoupling the systems (client and server need not know implementation /protocol/ data format etc )
+- distributed event log, fault tolerant , scalable and have very high thorughput can be used for real time events
+
+--major use cases
+a. distributed messaging system	 :decoupling systems	
+b. evetns tracking/metric gathering from distributed sysyems  middleware like patient vital summary streams, electircity feeds etc
+c. stream processing
+d. logs gathering for distribued systems
+e. integration with big data tools like for recommendation based on orders purchased/ or products viewed
+
+--kafka topics
+- it is like D.B table and event data are pusehd based on this topic , just like in db data are stores in individual tables
+
+each kafka broker is called bootstrap server meaning even if produer/consumer connects to one of them it can get metadata for all brokers in the cluster
+like ip of broker, whihc is keader of whihc parition of all topics etc
+
+-- while sending messages using kafka-console-producer if topic is not present it gives error but it creates a topic with default vals to start sending messages
+it just gives some warning only
+
+- kafka-console-consumer is like a lazy cold stream , like redis pub sub, consumer recieves messages sent by producer only once consumer is subscribed to kafka topic
+
+- kafka consumer group is a mechanism to group multiple working consumers together in same unit
+	in case there are multiple partitions in a topic and data is produced to these multiple partitions
+	we can have n number of consumers having same consumer group and each of these will be assigned to one each partitions and hence it adds scalability in the consumer side
+	scalability for producer to write data fastin kafka is done using kafka partitions
+	and reading data from these multiple partitions can be done using multiple consumers having same group id
+	
+	--producer config
+	a. acks , values 0 , 1 or all
+		o : means even if kafka broker did not commit and ackmolwdege producer consider this as done and need not to retry
+			can be useful when we are ok if few messages are deleted but we need message transmission fast, 
+			eg logs capturing, metrics capturing
+		1: if leader recieves the broker ackmolwdege the producer and producer do not retry from so on
+		all: broker do not acknoledge untill leader as well as other min insync replicaes are in sync and then onc broker ackmolwdege
+		producer wont retry 
+		in case of 0 latency is very less in data production to kafka but chancec of data loss
+		and in all ack mode latency is more but no chance of data loss
+		acks all works with min in sync replicas 
+		
+-- message compression : generally producer record is stored as plain text and passed to broker by producer
+			we can compress it with below advanctage:
+			a. less size of batch/record batch/record
+			b. fast transfer over the network
+	disadvantage:
+	a. adds very minor bit of latency in producer for cpu at producer to compress message
+	b. adds very minor bit of latency in consuer for cpu at consumer to decompress message and then deserialize
+	
+batching is very good and best performs with compression, it increases throughput and redue latency upto 4X	
+	
