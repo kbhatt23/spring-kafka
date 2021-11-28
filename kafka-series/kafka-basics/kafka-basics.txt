@@ -50,5 +50,96 @@ it just gives some warning only
 	a. adds very minor bit of latency in producer for cpu at producer to compress message
 	b. adds very minor bit of latency in consuer for cpu at consumer to decompress message and then deserialize
 	
-batching is very good and best performs with compression, it increases throughput and redue latency upto 4X	
+batching is very good and best performs with compression, it increases throughput and redue latency upto 4X
+
+-- consumer config
+a delivery semantics : it is related to consumer , while reading data from consumer and processing there could be error
+all these concpets are related to consumer offset commit
+tyoes :
+ - at most once: in case consumer processing fails due to consumer machine beeing down or other error in netowrk it ignore and do not retry it , this way either once or 0 message is processed by consumer
+	consumer commits offset as soon as it reiceves it so in case of error it is not retried and hence at most once
+ - at least once: in case consumer is processing error due to consumer machine beeing down or other error in netowrk  it is retried to be procesed by consumer, but this can cause duplication
+ 
+
+	consumer commits offset index only when sucesfully processed the message and hence the name at least once
+	so the consumer process should be made idempotent
+ - exactly once: can be done using kafkastreams or idempotent consumers	
 	
+	--consumer offset strategies
+	a. autocmiit to true : default, autocommit: false, we need to manually write code to commit the batch
+ -  we can make	enable.auto.commit = false in consumer so that we can buffer the records and batch them from consumer side
+	this way we can reduce network calls, we keep on buffering the records savint it once buffer is full and then manually committing the offset
+	this bulk batching in consumer increases perfroamnce however this can lead to duplicate processing and hence idempotency in consumer processing will be good thing to have
+	
+	--consumer offset reset strategies
+	a. latest : default , will keep on taking records whihc were produced to broker only one consumer had subscribed
+	b. ealierst: take records whihw are uncimmitted but still there in log withing range of retention period
+	c. from begining : replay the events from begining based on within retention period scheme
+	remmeber to make consumer fetch replay from begining , we need to reset in consumer group
+	remmeber to make consumer fetch replay from begining , we need to reset in consumer group
+	
+-- how to evaluate partition count and replication factor
+ more parition will increase throughput and high performance
+	more parition means more producers can send more data to these partitions running across multiple brokers	
+	hence increases throughput
+more parition will also make more data paralelism by more consumers reading data and  hence faster process performance
+typically use partition count 2 * broker count for smaller cluster (<=6 brokers ) or for higher brokers 1 or 1.5 * broker count
+min replicatin factor 2 (never ever keep 1), good will be 3 or 4 but very high means a lot of issue in performance
+as individual broker will do exrtra work to make in sync from leader copy, also more config data will be stored
+if replcation factor is causing more performance issue it will be better to upgrade machine in cloud instead of reducing RF keep at 3or 4	
+
+- kafka have a very big use case in big data ingestion ,it can act as big buffer from multiple producers(app, website, feed,d.b etc)
+	and it can be ingested to either fast real time systems like flink, spark etc or slow ingestion feed for analytics like hadoop etc
+	- its one of the most use case is log and metric aggregation, whihc can be feeded to elastic search ro dashboard metric consumers
+	
+	- kafka overall high level cluster architechture
+	  must keep a cluster of zookeeper with one instance of zookeeper running in different availability zones for fault taulerance and high availability
+	  also we must keep multiple brokers of kafka spread out among multiple A.Zs for same reason
+	  
+	  gotcha is it is not easy to setup a kafka cluster specially for production level grade
+	  we need to also implement monitoring using tools like graphana etc with real time analysis of cluster, security and other things making it very tough to setup
+	  - confluent comes with a cloud solution as a service and which can help in skipping effort on operation/monitoring etc
+	  
+	  - kafka is a general java based app and hence for monitoring it provides JMX metric using java library
+	   we can use these emtrics to create dashoard using ELK stack or promethues D.B + graphana to see vital info
+	   ex of metrics:
+	   under replicated partitions: min insync replicas details can help in seeing if some of the kafka broker is overloaded
+	   
+	   --kafka security features
+	   by defaukt kafka producer send messages to broker in plain text, making it visible for anyone to intercept over network and hack impoprtatn data
+	   - also kafka do not provide any authentication feature so anyone can connect to kafka cluster and push bad data or delte topic etc
+	   
+	   kafka provide security features like'
+	   a. https connection b/w kafka client and kafka broker , making all data over the netwrok encrypted and safe over the network
+	   b. acls , making authentication and authorization so bad user can can not login and user can do operations allowed for him based on role
+	   
+	   -- advanced kafka topic config
+	   - creation fo kafka topic needs mandatory partions and replcation factor, it provide default topic config like min.insync.replcas, compression-ratio etc
+	   however based on our need these can be changed using kafka-configs library whihc is common for topic, broker ,user etc different entity
+	   
+	   - topics consist of partitions whihc are like iondividual queue with indepdnet offset indices
+	   - each of these partitions are broken down into segment file, each fo this segment file have name containisng starting offset index
+	     once the config max.offset.size is reached to active offset segment it gets committed and a new offset is created for newer data with name containing offset start index
+		 kafka partitions segtment have two files ,
+			one is semgnet file with data based on offset index : useful for retrieving data based on offset range
+			other is segment file based on timestamp: can be used to find data based on timestamp range, both have finding data in o(1) time complexity
+			
+			---log cleanup policy
+			meaning how often and by what rule should we remove segment log file, like once log file segment is very old we need not store it and remov it
+			log.retention.hours=168 is 7 days meaning after 7 days once log segment was committed it will be remove if log.cleanup.policy = delete
+			
+			-- how log segment works
+			producer keeps on sending data to kafka broker on specific topic -> which consist of multiple partitions
+			in logs.dir folder of server.properties for each topic's partition one folder si created - topicname-partioncount
+			it contains one actie segment .log file where newer data from producers are stored as buffer
+			the momnent log.semgnet.ms size is reached it commits the segment log file with name containgn the starting offset index
+			how log segment helps
+			
+			a. log.cleanup.policy = delete
+  every time scheulder checks if the committed files creation date have passed 7 days(log.retention.hours) form current time then it removes whole log file
+b. log.cleanup.policy =compact: purpose is to compact multiple old segments and create single optimum segment file for old committed log segment files
+these cleanup policy ensure bad and old data are removed in optimal way
+in log compaction it ensures that when scheulder runs for each partion atleast latest entry for each key exist and keep all data in single log segment file
+pls make a note that log cleaup happens for already committed .log segments and not active segments
+compaction is like snapshotting in docker image  
+		

@@ -1,0 +1,110 @@
+what is kafka streams
+- a java(support only jvm languages like java or maybe scala) library that do real time stream processing and transformation within kafka
+- very developer friendly and easy to use, ships with kafka itself and need no seperate installation
+- very good library that takes data from kafka one by one, transform/enrich it and send to another kafka topic : kafka -> kafka communication
+- comes in built with kafka and unlike kafka connect we need not to setup a seperate cluser
+- use case: data trasformation, data enrichment, fraud detection, notification/alerts
+- highly scalable,elastic and fault tolreant same like kafka broker apis like producer and consumer and connect
+- great stream processing system with exactly once semantics gurantee
+- can be tough contender to apache spark , nifi which require seperate cluster 
+	and if project is already using kafka we can utilize same cluster if stream processing scenario is not very very huge
+- process data one by one and do not do batching like apache spark
+
+--architechture flow
+
+data source send stream of data -> kafka connect cluster -> kafka cluster -> kafka stream processing transform from same kafka cluser 's topic to another topic of same cluster
+	(no seperate cluster needed unlike kafka connect) -> data from new topic -> kafka cluster -> sink system
+	word-count-topic
+.\kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic word-count-topic --from-beginning --property print.key=true --property print.value=true --property key.deserializer=org.apache.kafka.common.serialization.StringDeserializer --property value.deserializer=org.apache.kafka.common.serialization.LongDeserializer
+
+.\kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic sentence-length-topic --from-beginning --property print.key=true --property print.value=true --property key.deserializer=org.apache.kafka.common.serialization.StringDeserializer --property value.deserializer=org.apache.kafka.common.serialization.IntegerDeserializer
+
+kafka streams vs apache spark stream processing system
+a. one data process at once vs batch of data process at once
+b. exactly once semantics available vs at least once semantics available
+c. no extra cluster needed vs need to setup different complex cluster with high maintainance
+d. easier to code and easier to scale vs tough to scale in parallel
+
+- kafka stream creates internal topics for fault tolerant behavior for stream processing
+- kafka streams internally uses kafka producer and consumer libraries for taking and pushing data from/to the kafka topic
+
+	
+-=-=-=-=-=-= fundamentals of kafka streams-=-=-=-=--=
+- meaning of stream of data:
+	sequence of data comming each data is immutable and it is ordered sequence of immutable order ,
+	not sure when next data will come and when the sequnce will end :  boundary less
+	
+a processor means a transformation processor that take input as stream data one by one and transform to another stream
+	so basically a processor is nothing but a method calls in kstream pipeline that takes input as stream data one by one and transform to another stream
+	each processor creates a new stream as stream is immutable
+- a toplogy is combination of all these transformation proessor that keeps on doing multiple stream processing to do whole task of stream processing
+ toplogy is represented in form of a graph with each node acting as a processor and arrows meaning stream fo data transformed one by one
+ sequence of data transformation pipeline is called as topology representerd in form of graph and each of independent transformation step is called processor represented as node of topology graph
+ 
+- a source proessor do not have any parent proccessor, it takes data from kafka topic and create stream out of it
+- a sink processor do not have child stream processor, it pushes data to kafka topic after all intermediate transformation by parent stream proccessors 
+ 
+- we can write data processing pipeline of toplogy using high level dsl(functional programming based in java) and low level api(very complex) 
+- never change kafka stream config property named application.id as it is unique per microservice,
+	it collects the multiple instances of kafka stream applications and remain same for all instanec, just like group id
+	if this is changed the internal changelog topic will be ignored as it considers to be a new app if changed the named
+	the changelog topic is internal topic to make kafka stream apps fault tolerant by loading the state of task completed
+	if application id changes it creaates new topic in changelog and will ignore old file making it bad for microservice
+	
+- kafka stream create internal topic for various scenario and fault tolerance and storing state of streams if needed
+  types:
+  a. repartition topic : name of topic is like application.id+ repartition-topic : in case processort is transofrming the key that may require repartitioning
+			and hence it creates this topic for management
+  b. changelog topic : name logic is same as above, in case of aggregation state storage it uses this topic
+- these topics are completely worked by kafka stream and we should never touch them 
+	
+-- Kstream
+an infinite sequence of data
+insert only, meaning evey single data is different and every time a new data comes it gets appended at the end,
+all data are indepdent and stat si not holded
+-- ktable
+- it is based on upsert , meaning it holds the state based on the key
+	if key do not exist it adds an entry, if key exist just update the old value, if null is passed as value it gets deleted
+	eg: k,v : one: 1, two:2 till not it just inserts new entry , one:11 : after this it updates old entry and do not add a new entry
+	similar to d.b table and hence name, generally grouped/sepreated by key , insert or update or delete based on key
+	good use case of log compaction, what happens it wait for some time and upserting happens
+	so that newer records if key is same it remove old record and create new record and hence less consumption is needed on consumer side
+	consumer need not to read n time but only m time where keys are unique
+	
+
+-=-=-operations-=-=-=-
+a. branch : it is used to convert one stream to multiple streams and hence the name branch
+		it takes n number of predicates , data is passed one by one to these predicates in sequence
+		the first one making the test of predicates to true will have that specific record to that branch
+		if none of predicates are test true then that record si ignored
+b. selectKey : take input as key,value pair and update the key
+			hence this will do repartitioning
+			
+-- if we use operations like map, flatmap , selectkey the data is marked for key repartitioning
+				basically what it means based on new key the hashing is done again and data is moved over the netwrok in cluster
+				hence it have some perforamnce cost and need to be avoided until very neccesarry
+				theere is a specific topic application.id+repartion-topic that hold this kind of data, never use this nor touch it ever
+			hence never use map/flatmap if we just have to modify value only, as that message is marked for repartition
+				and can have perforamnce imapct even though it wont change the partition for that as key might not have changed
+		
+
+	
+- ktable topic should be kept as log compacted , as ktable only considers latest message of all keys and hence ignored ones should be removed after committement from kafka stream consumer	
+//reduce is same as aggregation but the inout and output type is same
+					      //in aggregation we can have different data type of output van and stream val
+						  
+- types of joins possible
+	kstream-kstream : only windowed possible:
+	ktable-ktable : windowed possible
+	kstream-ktable
+	kstream-globalktable
+	ktable-globalktable
+	
+- join b/w kstream-kstream, kstream-ktable and ktable-ktable works only if the partitions are equal in these stream's read topics
+		howeveer in case partition counts are different then we can write to another interim topic having same partition as second topic
+		this way we can join interim topic's stream/table with second stream/table but it has latency and network cost
+	to help join this without a network call and an interim topic in between we an use globalktable
+- in case data in table is less and manageable we can create globalktable meaning a table that remains in all streams application
+		so lot of redundancy wil be there but if data is less then we are fine
+		also kstream-globalktable works even if partition counts are different
+							
