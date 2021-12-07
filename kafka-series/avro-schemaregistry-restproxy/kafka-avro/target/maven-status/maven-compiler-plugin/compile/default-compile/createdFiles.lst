@@ -1,0 +1,8 @@
+com\learning\kafka_avro\beans\CustomerV2.class
+com\learning\kafka_avro\App.class
+com\learning\kafka_avro\beans\CustomerV2$1.class
+com\learning\kafka_avro\beans\CustomerV2$Builder.class
+com\learning\kafka_avro\beans\CustomerV1.class
+com\learning\kafka_avro\beans\CustomerV1$Builder.class
+com\learning\kafka_avro\beans\CustomerV1$1.class
+com\learning\kafka_avro\consumers\KafkaConfig.class

@@ -1,0 +1,6 @@
+com\learning\avro_basics\beans\Customer.class
+com\learning\avro_basics\App.class
+com\learning\avro_basics\specific\SpecificRecordExample.class
+com\learning\avro_basics\beans\Customer$1.class
+com\learning\avro_basics\beans\Customer$Builder.class
+com\learning\avro_basics\generic\GenericRecordExample.class

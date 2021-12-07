@@ -1,0 +1,132 @@
+- why do we een need schema registry
+ kafka producer send message to kafka broker in bytes, meaning sequnce of 0's and 1's, 
+ kafka do not do any data validation so that is is having low latency and high throughput
+ what if producer sends bad data, producer is sending json object of order , but consumer is actually deserializing user object
+  -> consumer breaks in deserialization proess
+ what if producer json bean field name is changed or that is changed in consumer
+  -> consumer breaks in deserialization process
+- lot of big companies like uber have faced such challenges where there is no specific contract b/w producer and consumer in the data format
+
+- we need to ensure there is proper contract b/w producer and consumer so that consumer od not break, and format can evolve over time
+	hence we need schema registry
+- why we do not add schema validation and data erification logic in kafka
+		this will make kafka broker slow and hence higher latency and lower throughput whihc kills the main purpose of kafka broker
+		infact kafka is just a distributor it do not even loads/read the bytes so that it is extremely fast in distributing the bytes to consumer
+		consumer must deserialize this bytes for faster processing
+- hence we need to have a seperate component outside kafka broker for schema registry
+ producer and consumer should connect with the schema registry seperately
+it should support schema and have ability to reject bad data which do not follow schema rules
+it should also be lightweight : hence comes avro, so that network cost can be reduced
+it should support evolution of schema rules/format
+schema registry and validaton : confluent schema registry
+data format: apache avro data format 
+
+--=-=-kafka ecospace architechture-=-=-=-
+
+data source : injects kafka client producer api -> avro message -> kafka broker -> avro message -> kafka client consumer api -> sink app injects kafka client consumer api
+					|                    |
+										consumer uses schema rules from schema registry to deserialize avro message sent by broker
+					|                     
+					|
+					|
+				pass on topic avro schema rules and validates if rules are not met error is passed and data is not sent to kafka broker
+			kafka confluent schema registry (seperate server)
+					
+															
+														rest proxy uses schema registry for avro message
+														rest proxy uses kafka broker to send message and recieve message
+															
+
+non jdk client calls rest api -> avro/json message ->  	Kafka confluent rest proxy server  -> consumer calls http rest call to consume message from rest proxy
+
+- avro is a data format where the schema is fixed of data , unlike json which is plain text hence security concerns and size is huge plus one field an have data of any type
+	if we want to fix the data type we can go with avro
+	advantages of avro
+	a. data in binary format and hence secured not visible to all intercepters
+	b. lesser in size and hence payload will be smaller
+	c. we can strict data types and field : schema restriction
+	d. can add documenation in the schema
+	e. like json support multi language conversion, meaning avro file create by jdk can be deserialized using .net consumer
+	f. less cpu utilization to decode/deserialze avro to java object.
+	
+- confluent schema registry supports only avro format and no protobuff or thrift	
+
+- GenericRecord class can be used when we do not want specific class pojo and want to make it dynamically typed, like map
+- SpecificRecord makes more sense as each schema file gets compiled into specific class with specific field names and its data type
+	compiler can help in this
+- avro tools can help view the byte codes avro file and print for basic and quick analysis
+		kafka uses the same tools libraries
+		
+- avro reflection api can be used to generate schema file if we are not good in that as a java dev
+			create java classes and it will create schema file using avro tools reflection api
+			
+- to make avro schema forward and backward compatible we should add new field that have defaults and remove if that has defaults
+
+- schema evolution points to focus
+a. whatever field may get removed or added should always have default for full evolution capability
+b. never update enum types as it will break old data,  backward compatibility gone
+c. never change the data type of a field as it will break for old data, backward compatibility gone			
+
+- confluent schema registry is a common storage for all the avro avsc schema files for all the producers and consumers
+	centralized place to see the documenation, schema for all the producers , consumers and their contracts
+	- supports forward , backward and full evolution compatibility
+	- all adavantages of avro data fromat
+	- dev of consumer can view what topic need what kind of data 
+	- using avsc file it can generate pojo for deserailzatin and can be compile typed
+- avro data format can be applied to key as well as value
+		as key and value both are serialzed and deserialized, we need avro/json/data type serailzer for both key and value
+		hence avro schema can be used for both key and values of kafka event record
+- remember if we are adding a new field to existing sceham as part of full compatibility of schema evolution we must add default to it
+			also never change enum and also never cahnge data typed
+			
+- confluent schema registry ships with bianries like kafka-avro-producer an kafka-avro-consumer which can send data in avro format and read data from avro format			
+
+kafka-avro-console-producer --broker-list kafka:9092 --topic test-schema-topic --property schema.registry.url=http://schema-registry:8081 --property value.schema='{
+     "type": "record",
+     "namespace": "com.learning.avro_basics.beans",
+     "name": "TestScehma",
+     "doc": "avro schema for test record", 
+     "fields": [
+       { "name": "firstName", "type": "string", "doc": "First Name of Customer" },
+       { "name": "lastName", "type": "string", "doc": "Last Name of Customer" }
+     ]
+}'
+
+kafka-avro-console-consumer --bootstrap-server https://kafka:9092 --topic test-schema-topic --property schema.registry.url=http://schema-registry:8081 --property value.schema='{
+     "type": "record",
+     "namespace": "com.learning.avro_basics.beans",
+     "name": "TestScehma",
+     "doc": "avro schema for test record", 
+     "fields": [
+       { "name": "firstName", "type": "string", "doc": "First Name of Customer" },
+       { "name": "lastName", "type": "string", "doc": "Last Name of Customer" }
+     ]
+}'
+
+- we can not even send producer data with an updated schema that do not follow the schema evolution mode
+	even for full compatibility does not mean we completely change the format, like change field data type,
+	add field with no default value, change enum etc
+	if we break something in terms of these evolution rules data wont be send by producer and an error will occur at producer
+	
+	- kafka avro file contains both the data state and the schema
+		the kafkaavroserialzier converts the genricrecord/specificrecord into one avro file containing schema as well as data
+		
+		
+-=-=-=-=-=-confluent rest proxy-=-=-=--=-=-
+why: even though client library are supported for multiple language but best support/features are for java
+for python C# etc some of the features are not there like avro, binary, schema registry etc
+so these clients can call the rest proxy via http call and left kafka rest proxy do the interactions with kafka cluster as well as schema registry		
+
+- kafka rest proxy will do the same job as kafka client producer and consumer
+non java client send http post data to rest proxy	-> if data is to be avro format it creates avro file
+	-> sends schema to schema registry and data in binary format to kafka cluster internally
+	
+non java client calls get call to rest proxy -> rest proxy takes schema from schema registry and binary data from kafka cluster
+		-> decode the data and send back the client using get http call
+		
+best use cases are python and c# which do not support avro format 
+and hence they can use rest proxy internally integrated with kafka cluster and schema registry
+- however there is a performance hit almost 3x in comparison to kafka client libraries		
+		
+- tools like landoop , conduktor uses confluent rest proxy apis behind the scenes , 
+front end is javascript based and it calls the confluent rest proxy for data like topics, schema etc	
