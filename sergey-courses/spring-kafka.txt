@@ -1,0 +1,129 @@
+om shree ganeshaya namah
+om shree sita rama lakshman hanuman
+
+naming convention of event : <noun><action(past tense)>event
+eg: for creation of order: noun is order, action is creation so past tense becomes created
+hence name: orderCreatedEvent
+
+in case we want to pass image in kafka event it is possible as size per event is configurable and is 1mb by default
+but better approach here will be to upload to s3 and share the image url in kafka event
+
+ultimately the event is converted as byte[] by producer and saved as byte[] in kafka broker
+
+Kafka Message (complete kafka message that is stored in kafka) consists of:
+a. kafka event value : the actual payload in string,avro or serializable format
+   converted as byte[] by producer and stored as byte[] in kafka broker
+b. key: used for partitioning, can be string,avro or serializable format
+   producer converts this also in byte[] and send to kafka broker where it is stored in byte[] format
+c. timestamp: if producer do not set it , will be the moment kafka broker recieves it from producer
+d. header: for any other metadata
+
+kafka allows increasing the partitions of a topic but do not allow reducing it
+we need to remove and recreate for that
+increasing the topic parition will lead to data rebalancing and hence shall be done during off hours   
+
+- in consumer config MAX_POLL_INTERVAL_MS_CONFIG is like a poll timeout
+  meaning kafka consumer fetch batch and process the data of whole batch
+  if consumer is not able to process the batch of data within this period 
+  then kafka will consider this consumer to be down and closes it, whcih will do rebalancing
+  since this batch was not acknoledged by consumer to kafka broker it will timeout
+  consumer will be considered as faulty and rebalcning will occur,
+  then this same batch will be consumed by another kafka consumer instance which can lead ot idempotency issue
+  hence our consumer should be idempotent to ensure high consistency
+  depending upon consumer logic consistency like payment transaction , order creation etc
+  we need to create idempotent consumers for other less consistent application idempotency wont be an issue in consumer logic
+  
+- To avoid processing the same message twice and cause data consistency issues do following  
+a. idempotent producers
+b. idempotent consumers
+c. transactions : like saga in producer or consumer transactions
+   so that all data either get persisted or gets ignored completely
+  hence this shall be higher than the processing of one complete batch in cosnumer business logic
+      
+always use kafka-server-stop.sh for graceful shutdown to avoid data loss, resource cleanup
+like file segment shall be closedf, no data loss, network sockets are closed
+this avoid resource leakage and avoid data loss
+
+- Kafka producer can be synchronous as well as async
+  in sync the kafka producer application blocks until event/message is sent to kafka and then kafka acknoledge back the producer
+  the thread of kafka producer app will be blocked until all the 2 steps
+  : this is used more consistent producers but it makes system slow
+  for high throughput and low latency systems use async
+  in async it do not wait
+
+- Ensure to add no arg constructor in the serializable class as either key or value
+  as this class will be converted to byte[] and sent to kafka?
+  kafka consumer will use this no arg constructor to create object and then call setter to each field
+  just like objectmapper of jackson in both key and value we need to have no arg constructor
+  
+- By Default Acks mode for producer is 1
+  meaning broker will send acknoledgement to producer once the leader writes the data to folder
+  wont wait for other nodes to replicate but broker will send acknoledgement just be leader data is saved
+  this is good for very low latency but at the cost of data loss
+  if master node goes down and do not get started then boom we lose the data
+  hence it is good practise to Acks=All or atleast 2 
+  for ALL it will do data replication of nodes count = min insync replicas and then acknoledge to producer
+  but it will make producer as s bit slow
+  set ACKS=0 for no wait for kafka producer
+  scenario for ACKS=0 when data loss is fine and we need extremely high throughput
+  eg: location coordinates update for cars in mobile app
+  throughput will be very high and latency must be very low
+  if some data loss happens then thats fine  
+- if ACKS != 0 and no acknoledgement happens and timeout happens
+  then producer will retry to send event
+  hence kafka provide producer retry by default but for infinite number of times or timeout happens
+  also there has to be segregation of retryable and non retryable errors
+  like event size too large: for such error retry wont help
+  retryable error example : maybe master node is down or min in sync replica is not in sync
+  once cluster becomes healthy the data can be stored and hence producer must retry  
+
+- No need to write retry code manually as kafka producer library do it internally
+  unless need to be customized
+  kafka producer library handles retryable / non retryable handing on its own
+  but we can customize it
+
+- to update min insync replicas we can use bin file kafka-configs.sh  
+
+- Remember that Kafka Producer library have retry feature by default
+  for retryable exceptions like if from 3 node cluster 2 nodes goes down
+  acks=all and min insync replicas is 2 then exception occurs as nodes might get started after some timeout
+  but this by default will retry infinite times until delivery time is reached which is 2 mins by default
+  2 ways to setup producer retry
+ a. retry attemps + backoff: retry n time with backoff in b/w wait
+ b. delivery time update + timeout update	
+    recommended by kafka documentation
+    no need to set number of times to retry but it keeps on retrying until total delivery time is reached
+	default value of delivery time out is 2 mins
+    single attempt timeoput = request timeout
+    n attempt timeout + wait time + request time + linger.ms(if batch is needed) = delivery time
+    meaning kafka producer will get blocked until delviery time and it keeps on attempting retries untill success occurs 
+    or delivery timeout happens	
+	delivery timeout >= linger.ms + request timeout
+	
+- kafka idempotence feature in producer handle all the failure scenarios
+  but few properties are mandated to be there to enable idempotence
+  acks=all, producerretry >=1 max.in.flight.requests.per.connection<=5
+  set this as 5 for prescribed behavior in idempotence  
+  
+- kafka consumer processing might give any exception
+  one scenario is producer pushing data in some basic string format
+  but consumer is using jsondeserializer: which will throw exception in consumer during parsing 
+  by default consumer will keep on retrying it infinitely and everytime parsing exception will occur
+  meaning this kind of exception is non recoverable and hence consumer shall not retry it
+  or else threads in consumer will be blocked infinitely
+- to fix parsing exception retry in consumer set ErrorHandlingDeserializer  
+
+- We can ignore retrying in consumer for records having json parsing exception/ deserialisation error
+  using above solutiuon
+  but we also must push this to a dead letter topic
+  for that we need to use ErrorRecoveryHandler
+  if we use Spring DeadLetterErrorHandler then topic name of dead letter topic
+  dead letter topic will be originaltopicname + ".DLT"
+
+- Kafka partition rebalancing occurs when a new consumer joins a consumer group or exits it
+  during rebalancing period none of the consumer process the kafka data
+  but it is fast and hence we shall not have too freequent consumer upscaling or downscaling
+  
+- kafka consumers sends headtbeat to the kafka broker leader ever 5 seconds(or configurable)
+  if after some multiple failed attempts the consumer stops sending heartbeat
+  kafka broker consider this consumer as closed and do rebalancing of partitions  

@@ -23,6 +23,8 @@ NOTE :
 # create topic t_hello
 kafka-topics.sh --bootstrap-server localhost:9092 --create --topic t_hello --partitions 1 --replication-factor 1
 
+kafka-topics.sh --bootstrap-server localhost:9092 --create --topic product-created-topic --partitions 3 --replication-factor 3 --config min.insync.replicas=2
+
 # create topic using zookeeper(better for managin multiple brokers)
 kafka-topics.bat --create --topic test-topic -zookeeper localhost:2181 --replication-factor 1 --partitions 4
 

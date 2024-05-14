@@ -1,0 +1,1 @@
+C:\Kanishk\kanishk_softwares\softwares\kafka\bin\windows\kafka-storage.bat random-uuid
