@@ -127,3 +127,13 @@ this avoid resource leakage and avoid data loss
 - kafka consumers sends headtbeat to the kafka broker leader ever 5 seconds(or configurable)
   if after some multiple failed attempts the consumer stops sending heartbeat
   kafka broker consider this consumer as closed and do rebalancing of partitions  
+  
+- Why we need transactions in apache kafka
+  a. all or nothing : either all tasks complete or nothing
+  b. exactly once semantics in producer + consumer
+  meaning let producer be idempotent : send exactly one message to kafka broker
+  transactions in consumer : let consumer process one message exactly once 
+  + do not let consumer read incomplete transactions  
+  
+- While using kafka produer for transactions the transaction prefix shall be different for different instance of microservice
+  if microservice is runnign with 4 instance than for all four instance the transaction prefix has to be different  
